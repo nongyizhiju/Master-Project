@@ -10,10 +10,10 @@ from Bio import SeqIO
 from pyfaidx import Fasta
 
 # Define the gene symbols of interest
-genes_of_interest = ['OPN1LW']
+genes_of_interest = ['OPN1LW'] 
 
 # Load the reference genome and annotation file
-genome_file = 'Homo_sapiens.GRCh38.dna.chromosome.X.fa'
+genome_file = 'Homo_sapiens.GRCh38.dna.chromosome.X.fa' 
 annotation_file = 'Homo_sapiens.GRCh38.109.chromosome.X.gff3'
 
 # Read the reference genome using pyfaidx
@@ -30,12 +30,12 @@ gffutils.create_db(annotation_file, db_file, id_spec=['ID', 'Name'], force=True,
 db = gffutils.FeatureDB(db_file)
 
 # Define the output files
-new_genome_file = 'duplicated_genes.fa'
+new_genome_file = 'duplicated_genes.fa' 
 new_annotation_file = 'duplicated_genes.gff3'
 
-# Define the insert position
-insert_position = 154159532
-# insert the duplicated gene in 500bp downstream of the OPN1LW gene 
+# Define the insert position 
+insert_position = 154159532 
+# e.g.,insert the duplicated gene in 500bp downstream of the OPN1LW gene 
 
 # Initialize a dictionary to store updated sequences
 updated_genome = {seq_record.name: seq_record for seq_record in genome}
@@ -113,14 +113,14 @@ new_length = len(str(updated_genome[gene.seqid].seq))
 print(f"Original genome length: {original_length}")
 print(f"New genome length: {new_length}")
 assert new_length == original_length + gene_length 
-print('The length of the inserted sequence:', new_length - original_length)
+print('The length of the inserted sequence:', new_length - original_length) # calculate the length of the inserted gene sequence 
 
-# 2. Extract the inserted gene sequence and compare it to the original gene sequence
+# 2. Extract the inserted gene sequence and compare it to the original gene sequence 
 inserted_gene_sequence = updated_genome[gene.seqid].seq[insert_position - 1:insert_position - 1 + gene_length]
-print(f"Original gene sequence (first 100 bp): {gene_sequence[:100]}")
-print(f"Original gene sequence (last 100 bp): {gene_sequence[-100:]}")
-print(f"Inserted gene sequence (first 100 bp): {inserted_gene_sequence[:100]}")
-print(f"Inserted gene sequence (last 100 bp): {inserted_gene_sequence[-100:]}")
+print(f"Original gene sequence (first 100 bp): {gene_sequence[:100]}") # first 100bp for original gene sequence 
+print(f"Original gene sequence (last 100 bp): {gene_sequence[-100:]}") # last 100bp for original gene sequence 
+print(f"Inserted gene sequence (first 100 bp): {inserted_gene_sequence[:100]}") # first 100bp for inserted gene sequence 
+print(f"Inserted gene sequence (last 100 bp): {inserted_gene_sequence[-100:]}") # last 100bo for inserte gene sequence 
 assert str(inserted_gene_sequence) == str(gene_sequence)
 
 # 3. check the annotation file 
