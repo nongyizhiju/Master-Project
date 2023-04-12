@@ -55,7 +55,7 @@ for gene in db.features_of_type('gene'):
     offset = gene_length
 
     # Extract the gene sequence
-    gene_sequence = genome[gene.seqid][gene.start - 1:gene.end]
+    gene_sequence = genome[gene.seqid][gene.start - 1:gene.end] 
 
     # Insert the duplicated gene sequence into the reference genome
     genome_seq = str(genome[gene.seqid])
@@ -75,19 +75,61 @@ for gene in db.features_of_type('gene'):
         )
         updated_feature.id = feature.id
         updated_features.append(updated_feature)
+        
+# Create duplicated child features (e.g. exons, CDS) 
+def create_duplicated_child_feature(child_feature, duplicated_gene, gene_start, insert_position):
+    duplicated_child = gffutils.Feature(
+        seqid=child_feature.seqid,
+        source=child_feature.source,
+        featuretype=child_feature.featuretype,
+        start=child_feature.start + insert_position - gene_start,
+        end=child_feature.end + insert_position - gene_start,
+        strand=child_feature.strand,
+        attributes=dict(child_feature.attributes)
+    )
+    duplicated_child.id = f"{child_feature.id}_dup"
+    duplicated_child.attributes['ID'] = [duplicated_child.id]
+    duplicated_child.attributes['Parent'] = [duplicated_gene.id]
+    return duplicated_child
 
-    # Create a new feature for the duplicated gene
-    duplicated_gene = gffutils.Feature(
-    seqid=gene.seqid,
-    source=gene.source,
-    featuretype=gene.featuretype,
-    start=insert_position,
-    end=insert_position + gene_length - 1,
-    strand=gene.strand,
-    attributes=dict(gene.attributes)
-)
-duplicated_gene.attributes['Name'] = [f"{gene_symbol}_dup"]
- 
+
+duplicated_gene = None
+duplicated_children = []
+
+for gene in db.features_of_type('gene'):
+    if 'Name' not in gene.attributes:
+        continue
+    gene_symbol = gene.attributes['Name'][0]
+
+    if gene_symbol in genes_of_interest:
+        duplicated_gene = gffutils.Feature(
+            seqid=gene.seqid,
+            source=gene.source,
+            featuretype=gene.featuretype,
+            start=insert_position,
+            end=insert_position + gene_length - 1,
+            strand=gene.strand,
+            attributes=dict(gene.attributes)
+        )
+        duplicated_gene.attributes['Name'] = [f"{gene_symbol}_dup"]
+        duplicated_gene.id = f"{gene.id}_dup"
+        duplicated_gene.attributes['ID'] = [duplicated_gene.id]
+
+        for child_feature in db.children(gene.id, order_by='start'):
+            duplicated_child = create_duplicated_child_feature(
+                child_feature, duplicated_gene, gene.start, insert_position
+            )
+            duplicated_children.append(duplicated_child)
+        break
+
+if duplicated_gene:
+    print("Duplicated gene:")
+    print(duplicated_gene)
+    print("\nDuplicated child features:")
+    for duplicated_child in duplicated_children:
+        print(duplicated_child)
+else:
+    print("Gene of interest not found in the database.")
 
 # Write the new FASTA file with the inserted duplicated gene
 with open(new_genome_file, 'w') as new_genome_handle:
@@ -105,7 +147,27 @@ with open(new_annotation_file, 'w') as output_handle:
         else:
             output_handle.write(str(feature) + '\n')
 
+    # Write the duplicated gene feature to the output file
+    duplicated_gene.id = f"{gene.id}_dup"
+    output_handle.write(str(duplicated_gene) + '\n')
 
+    # Copy and update the child features (e.g., exons, CDS) for the duplicated gene
+    for child_feature in db.children(gene.id):
+        duplicated_child = gffutils.Feature(
+            seqid=child_feature.seqid,
+            source=child_feature.source,
+            featuretype=child_feature.featuretype,
+            start=child_feature.start + insert_position - gene.start,
+            end=child_feature.end + insert_position - gene.start,
+            strand=child_feature.strand,
+            attributes=dict(child_feature.attributes)
+        )
+        duplicated_child.id = f"{child_feature.id}_dup"
+        duplicated_child.attributes['Parent'] = [duplicated_gene.id]
+        output_handle.write(str(duplicated_child) + '\n')
+
+
+          
 # Verification steps -- check the inserted sequence and modified annotation file 
 # 1. Compare the lengths of the original and new genome sequences
 original_length = len(str(genome[gene.seqid]))
@@ -202,5 +264,4 @@ for gene_name in genes_of_interest:
             print(f"  Original feature {i}: {original_feature}")
             print(f"  Updated feature {i}: {updated_feature}")
             assert updated_feature['start'] == original_feature['start'] + gene_length
-
 
